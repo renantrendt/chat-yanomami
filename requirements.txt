@@ -1,0 +1,7 @@
+annoy==1.17.1
+fastapi==0.104.1
+uvicorn==0.24.0
+torch==2.1.1
+transformers==4.35.2
+numpy==1.26.2
+pydantic==2.5.2

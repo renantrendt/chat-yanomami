@@ -4,18 +4,45 @@ const Chat = () => {
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [context, setContext] = useState([]);
+
+    const searchVectorStore = async (query) => {
+        try {
+            const response = await fetch('http://localhost:8000/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, k: 3 }),
+            });
+            const data = await response.json();
+            return data.results;
+        } catch (error) {
+            console.error('Error searching vector store:', error);
+            return [];
+        }
+    };
 
     const handleSend = async () => {
         if (!input.trim()) return;
         
         setLoading(true);
-        const response = await fetch('/api/inference', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: input }),
-        });
-        const data = await response.json();
-        setMessages([...messages, { user: input, bot: data.output }]);
+        
+        // Get relevant entries from vector store
+        const searchResults = await searchVectorStore(input);
+        
+        // Format the results
+        const formattedResults = searchResults.map(result => ({
+            headword: result.headword,
+            definition: result.definition,
+            examples: result.examples || [],
+            distance: result.distance
+        }));
+        
+        // Add to messages
+        setMessages([...messages, { 
+            user: input, 
+            results: formattedResults
+        }]);
+        
         setInput('');
         setLoading(false);
     };
@@ -38,8 +65,25 @@ const Chat = () => {
                             </div>
                         </div>
                         <div className="flex items-start">
-                            <div className="bg-gray-200 rounded-lg px-4 py-2 max-w-[80%]">
-                                {msg.bot}
+                            <div className="bg-gray-100 rounded-lg px-4 py-2 max-w-[80%] w-full">
+                                {msg.results.map((result, i) => (
+                                    <div key={i} className="mb-6 last:mb-0">
+                                        <div className="font-bold text-lg mb-2">{result.headword}</div>
+                                        <div className="text-gray-700 mb-3">{result.definition}</div>
+                                        {result.examples && result.examples.length > 0 && (
+                                            <div className="bg-gray-50 rounded p-3">
+                                                <div className="font-semibold mb-2">Exemplos:</div>
+                                                {result.examples.map((example, j) => (
+                                                    <div key={j} className="mb-2 last:mb-0">
+                                                        <div className="text-gray-800">{example.original}</div>
+                                                        <div className="text-gray-600 text-sm">{example.translation}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="text-xs text-gray-400 mt-2">Similaridade: {(1 - result.distance).toFixed(3)}</div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -47,7 +91,7 @@ const Chat = () => {
                 {loading && (
                     <div className="flex items-center justify-center py-4">
                         <div className="animate-pulse text-gray-500">
-                            Generating response (this may take up to 30 seconds)...
+                            Searching context and generating response, it may take ~30 seconds...
                         </div>
                     </div>
                 )}
@@ -59,7 +103,7 @@ const Chat = () => {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Type your message..."
+                        placeholder="Ask about the Yanomami people..."
                         disabled={loading}
                     />
                     <button

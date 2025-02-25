@@ -1,9 +1,15 @@
 import { exec } from 'child_process';
 
 export default function handler(req, res) {
-    const { query } = req.body;
+    const { query, context } = req.body;
 
-    exec(`python /Users/renanserrano/CascadeProjects/mobilellm125m/MobileLLM/inference.py "${query}"`, (error, stdout, stderr) => {
+    // Escape the strings to prevent command injection
+    const escapedQuery = query.replace(/"/g, '\"');
+    const escapedContext = context ? context.replace(/"/g, '\"') : '';
+
+    const command = `python /Users/renanserrano/CascadeProjects/mobilellm125m/MobileLLM/inference.py --input "${escapedQuery}" ${context ? `--context "${escapedContext}"` : ''}`;
+
+    exec(command, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error running inference: ${error}`);
             console.error(`stderr: ${stderr}`);
